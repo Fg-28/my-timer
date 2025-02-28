@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Single Timer</title>
+  <!-- Mobile-friendly scaling -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0; padding: 0;
+      display: flex; flex-direction: column;
+      height: 100vh;
+      background-color: #f0f0f0;
+    }
+    header {
+      display: flex; align-items: center;
+      background-color: #4CAF50; color: white;
+      padding: 1rem;
+    }
+    header button {
+      background: transparent;
+      border: none;
+      color: white;
+      font-size: 1rem;
+      margin-right: 1rem;
+      cursor: pointer;
+    }
+    h1 { margin: 0; }
+
+    /* Main content area */
+    .main-content {
+      flex: 1;
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: center;
+      text-align: center;
+      padding: 1rem;
+    }
+    .time-remaining {
+      font-size: 1.2rem;
+      margin: 0.5rem 0;
+    }
+
+    /* Progress Bar */
+    .progress-bar-wrapper {
+      width: 80%; max-width: 400px;
+      background-color: #ddd;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 1rem;
+      height: 25px;
+    }
+    .progress-bar-fill {
+      background-color: #4caf50; /* green */
+      height: 100%;
+      width: 0%;
+      transition: width 0.25s;
+    }
+
+    /* Modal overlay (dark background) */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      display: none; /* hidden by default */
+      align-items: center; justify-content: center;
+      z-index: 999;
+    }
+    /* The modal content box */
+    .modal {
+      background-color: #fff;
+      border-radius: 8px;
+      padding: 1.5rem;
+      max-width: 300px;
+      width: 80%;
+    }
+    .modal h3 {
+      margin-top: 0;
+    }
+    .modal p {
+      margin: 1rem 0;
+    }
+    .modal label {
+      display: block;
+      margin: 0.5rem 0 0.2rem 0;
+    }
+    .modal input, .modal select {
+      width: 100%;
+      padding: 0.5rem;
+      margin-bottom: 1rem;
+      box-sizing: border-box;
+    }
+    .modal button {
+      margin-right: 0.5rem;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header with Add New button -->
+  <header>
+    <button onclick="handleAddNew()">Add New</button>
+    <h1>Single Timer</h1>
+  </header>
+
+  <!-- Main area showing "No timer set" or the countdown -->
+  <div class="main-content">
+    <div class="time-remaining" id="timeRemaining">No timer set.</div>
+    <div class="progress-bar-wrapper">
+      <div class="progress-bar-fill" id="progressFill"></div>
+    </div>
+  </div>
+
+  <!-- Modal for entering new timer details -->
+  <div class="modal-overlay" id="timerModalOverlay">
+    <div class="modal">
+      <h3>Set Timer</h3>
+      <label>Enter Number:</label>
+      <input type="number" id="durationInput" placeholder="e.g. 10" />
+
+      <label>Unit:</label>
+      <select id="unitSelect">
+        <option value="year">Year</option>
+        <option value="month">Month</option>
+        <option value="week">Week</option>
+        <option value="day" selected>Day</option>
+        <option value="hour">Hour</option>
+      </select>
+
+      <button onclick="handleTimerCreate()">Create</button>
+      <button onclick="closeTimerModal()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Confirmation modal for custom pop-ups (in the center of screen) -->
+  <div class="modal-overlay" id="confirmOverlay">
+    <div class="modal">
+      <h3 id="confirmTitle">Confirm Action</h3>
+      <p id="confirmMessage">Are you sure?</p>
+      <button id="confirmYesBtn">Yes</button>
+      <button id="confirmNoBtn">No</button>
+    </div>
+  </div>
+
+  <script>
+    const TIMER_KEY = "singleTimerData";
+    let updateInterval = null;
+
+    // On page load, check if there's an existing timer
+    document.addEventListener('DOMContentLoaded', () => {
+      const savedTimerStr = localStorage.getItem(TIMER_KEY);
+      if (savedTimerStr) {
+        const timerData = JSON.parse(savedTimerStr);
+        startTimerLoop(timerData);
+      }
+    });
+
+    /* ===========================
+       ADD NEW TIMER FLOW
+    =========================== */
+    function handleAddNew() {
+      // Show custom confirmation modal (instead of browser confirm)
+      showConfirmModal(
+        "Add New Timer",
+        "Do you really want to add a new timer? (This will delete the old one.)",
+        () => { // onYes
+          // 1) Clear old timer data
+          localStorage.removeItem(TIMER_KEY);
+          // 2) Reset display
+          document.getElementById('timeRemaining').textContent = "No timer set.";
+          document.getElementById('progressFill').style.width = '0%';
+          if (updateInterval) clearInterval(updateInterval);
+
+          // 3) Show the input modal
+          openTimerModal();
+
+        },
+        () => { /* onNo -> do nothing */ }
+      );
+    }
+
+    /* ===========================
+       TIMER MODAL FOR INPUT
+    =========================== */
+    function openTimerModal() {
+      document.getElementById('timerModalOverlay').style.display = 'flex';
+      // Reset fields
+      document.getElementById('durationInput').value = '';
+      document.getElementById('unitSelect').value = 'day';
+    }
+
+    function closeTimerModal() {
+      document.getElementById('timerModalOverlay').style.display = 'none';
+    }
+
+    // Called when user clicks "Create" in the timer modal
+    function handleTimerCreate() {
+      const durationValue = document.getElementById('durationInput').value;
+      const unitValue = document.getElementById('unitSelect').value;
+
+      if (!durationValue || isNaN(durationValue) || durationValue <= 0) {
+        alert("Please enter a valid number.");
+        return;
+      }
+
+      // Show custom confirm: "Are you sure you want to create XX timer?"
+      let timerLabel = `${durationValue} ${unitValue}`;
+      showConfirmModal(
+        "Create Timer",
+        `Are you sure you want to create ${timerLabel} timer?`,
+        () => {
+          // If Yes:
+          closeTimerModal();
+          createTimer(durationValue, unitValue);
+        },
+        () => {
+          // If No: do nothing
+        }
+      );
+    }
+
+    /* ===========================
+       CREATE TIMER & COUNTDOWN
+    =========================== */
+    function createTimer(duration, unit) {
+      const now = new Date();
+      let end = new Date(now);
+
+      switch (unit) {
+        case 'year':
+          end.setFullYear(end.getFullYear() + parseInt(duration,10));
+          break;
+        case 'month':
+          end.setMonth(end.getMonth() + parseInt(duration,10));
+          break;
+        case 'week':
+          end.setDate(end.getDate() + (parseInt(duration,10) * 7));
+          break;
+        case 'day':
+          end.setDate(end.getDate() + parseInt(duration,10));
+          break;
+        case 'hour':
+          end.setHours(end.getHours() + parseInt(duration,10));
+          break;
+        default:
+          // fallback to day
+          end.setDate(end.getDate() + parseInt(duration,10));
+      }
+
+      const startTime = now.getTime();
+      const endTime = end.getTime();
+      const totalMs = endTime - startTime;
+
+      const timerData = {
+        startTime: startTime,
+        endTime: endTime,
+        totalMs: totalMs
+      };
+
+      localStorage.setItem(TIMER_KEY, JSON.stringify(timerData));
+      startTimerLoop(timerData);
+    }
+
+    function startTimerLoop(timerData) {
+      if (updateInterval) {
+        clearInterval(updateInterval);
+      }
+      updateUI(timerData); // immediate update
+      updateInterval = setInterval(() => {
+        updateUI(timerData);
+      }, 1000);
+    }
+
+    // Update time remaining + progress bar
+    function updateUI(timerData) {
+      const now = Date.now();
+      let remainMs = timerData.endTime - now;
+      if (remainMs < 0) remainMs = 0; // if time is up
+
+      // Convert remainMs -> d/h/m/s
+      let seconds = Math.floor(remainMs / 1000);
+      let minutes = Math.floor(seconds / 60);
+      let hours = Math.floor(minutes / 60);
+      let days = Math.floor(hours / 24);
+
+      seconds = seconds % 60;
+      minutes = minutes % 60;
+      hours = hours % 24;
+
+      let displayStr = '';
+      if (days > 0) displayStr += days + 'd ';
+      if (hours > 0) displayStr += hours + 'h ';
+      if (minutes > 0) displayStr += minutes + 'm ';
+      displayStr += seconds + 's';
+
+      if (remainMs <= 0) {
+        document.getElementById('timeRemaining').textContent = "Time is up!";
+      } else {
+        document.getElementById('timeRemaining').textContent = displayStr + " remaining";
+      }
+
+      // Update progress bar
+      let elapsedMs = timerData.totalMs - remainMs;
+      let percent = (elapsedMs / timerData.totalMs) * 100;
+      if (percent > 100) percent = 100; // clamp
+      document.getElementById('progressFill').style.width = percent + '%';
+    }
+
+    /* ===========================
+       CUSTOM CONFIRM MODAL
+    =========================== */
+    // We'll reuse the same #confirmOverlay for different confirmation messages
+    function showConfirmModal(title, message, onYes, onNo) {
+      const overlay = document.getElementById('confirmOverlay');
+      const titleElem = document.getElementById('confirmTitle');
+      const messageElem = document.getElementById('confirmMessage');
+      const yesBtn = document.getElementById('confirmYesBtn');
+      const noBtn = document.getElementById('confirmNoBtn');
+
+      titleElem.textContent = title;
+      messageElem.textContent = message;
+
+      // Remove old event listeners if any (to prevent multiple calls)
+      yesBtn.onclick = null;
+      noBtn.onclick = null;
+
+      // Assign new event listeners
+      yesBtn.onclick = () => {
+        overlay.style.display = 'none';
+        if (typeof onYes === 'function') {
+          onYes();
+        }
+      };
+      noBtn.onclick = () => {
+        overlay.style.display = 'none';
+        if (typeof onNo === 'function') {
+          onNo();
+        }
+      };
+
+      // Show the overlay
+      overlay.style.display = 'flex';
+    }
+  </script>
+</body>
+</html>
