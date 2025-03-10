@@ -1,198 +1,80 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Simple Countdown with Progress Bar</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0; padding: 0;
-      display: flex; flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      min-height: 100vh;
-      background-color: #f0f0f0;
-    }
-    header {
-      width: 100%;
-      background-color: #4CAF50;
-      color: white;
-      padding: 1rem;
-      text-align: center;
-    }
-    h1 {
-      margin: 0;
-      font-size: 1.5rem;
-    }
-    .main-content {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 1rem;
-      width: 100%;
-      max-width: 500px;
-      box-sizing: border-box;
-    }
-    .inputs {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem 1rem;
-      margin-bottom: 1rem;
-    }
-    .inputs label {
-      display: flex;
-      flex-direction: column;
-      font-weight: bold;
-    }
-    .inputs input {
-      margin-top: 0.3rem;
-      width: 80px;
-      padding: 0.3rem;
-      font-size: 1rem;
-      text-align: center;
-    }
-    button {
-      margin-bottom: 1rem;
-      padding: 0.5rem 1rem;
-      font-size: 1rem;
-      cursor: pointer;
-    }
-    #timeDisplay {
-      font-size: 1.2rem;
-      margin-bottom: 1rem;
-    }
-    .progress-bar-wrapper {
-      width: 100%;
-      max-width: 400px;
-      height: 25px;
-      background-color: #ddd;
-      border-radius: 8px;
-      overflow: hidden;
-      margin-top: 0.5rem;
-    }
-    .progress-bar-fill {
-      background-color: #4caf50; /* green portion */
-      height: 100%;
-      width: 0%;      /* will be updated dynamically */
-      transition: width 0.25s;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Countdown Timer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 50px;
+        }
+        #progress-container {
+            width: 100%;
+            background: #ddd;
+            height: 30px;
+            margin-top: 20px;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        #progress-bar {
+            height: 100%;
+            width: 0;
+            background: green;
+        }
+    </style>
 </head>
 <body>
-
-  <header>
-    <h1>Simple Countdown</h1>
-  </header>
-
-  <div class="main-content">
-    <div class="inputs">
-      <label>
-        Days
-        <input type="number" id="daysInput" min="0" value="0">
-      </label>
-      <label>
-        Hours
-        <input type="number" id="hoursInput" min="0" max="23" value="0">
-      </label>
-      <label>
-        Minutes
-        <input type="number" id="minutesInput" min="0" max="59" value="1">
-      </label>
-      <label>
-        Seconds
-        <input type="number" id="secondsInput" min="0" max="59" value="0">
-      </label>
+    <h1>Countdown Timer</h1>
+    <label>Days: <input type="number" id="days" min="0" value="0"></label>
+    <label>Hours: <input type="number" id="hours" min="0" value="0"></label>
+    <label>Minutes: <input type="number" id="minutes" min="0" value="0"></label>
+    <label>Seconds: <input type="number" id="seconds" min="0" value="0"></label>
+    <button onclick="startCountdown()">Start</button>
+    <h2 id="display">00:00:00</h2>
+    <div id="progress-container">
+        <div id="progress-bar"></div>
     </div>
-
-    <button onclick="startTimer()">Start Timer</button>
-
-    <div id="timeDisplay">No countdown running.</div>
-
-    <div class="progress-bar-wrapper">
-      <div class="progress-bar-fill" id="progressFill"></div>
-    </div>
-  </div>
-
-  <script>
-    let intervalId = null;
-    let totalSeconds = 0;   // total countdown duration
-    let remainingSeconds = 0; // how many seconds remain
-
-    function startTimer() {
-      // Clear any existing interval
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-
-      // Read inputs
-      const d = parseInt(document.getElementById('daysInput').value, 10) || 0;
-      const h = parseInt(document.getElementById('hoursInput').value, 10) || 0;
-      const m = parseInt(document.getElementById('minutesInput').value, 10) || 0;
-      const s = parseInt(document.getElementById('secondsInput').value, 10) || 0;
-
-      // Convert everything to total seconds
-      totalSeconds = d * 86400 + h * 3600 + m * 60 + s;
-      remainingSeconds = totalSeconds;
-
-      if (totalSeconds <= 0) {
-        document.getElementById('timeDisplay').textContent = "Please enter a valid time.";
-        updateProgressBar(0);
-        return;
-      }
-
-      // Update immediately
-      updateDisplay();
-      updateProgressBar(calcProgressPercent());
-
-      // Start interval
-      intervalId = setInterval(() => {
-        remainingSeconds--;
-
-        if (remainingSeconds <= 0) {
-          // final update, then stop
-          remainingSeconds = 0;
-          updateDisplay();
-          updateProgressBar(100);
-          clearInterval(intervalId);
-          alert("Time is up!");
-        } else {
-          // normal update
-          updateDisplay();
-          updateProgressBar(calcProgressPercent());
+    
+    <script>
+        let countdown;
+        function startCountdown() {
+            clearInterval(countdown);
+            let days = parseInt(document.getElementById('days').value) || 0;
+            let hours = parseInt(document.getElementById('hours').value) || 0;
+            let minutes = parseInt(document.getElementById('minutes').value) || 0;
+            let seconds = parseInt(document.getElementById('seconds').value) || 0;
+            let totalTime = (days * 86400) + (hours * 3600) + (minutes * 60) + seconds;
+            let timeLeft = totalTime;
+            
+            if (totalTime <= 0) {
+                alert("Please enter a valid countdown time.");
+                return;
+            }
+            
+            function updateDisplay() {
+                let d = Math.floor(timeLeft / 86400);
+                let h = Math.floor((timeLeft % 86400) / 3600);
+                let m = Math.floor((timeLeft % 3600) / 60);
+                let s = timeLeft % 60;
+                document.getElementById('display').textContent = 
+                    `${String(d).padStart(2,'0')}:${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+                document.getElementById('progress-bar').style.width = 
+                    `${((totalTime - timeLeft) / totalTime) * 100}%`;
+            }
+            
+            updateDisplay();
+            countdown = setInterval(() => {
+                if (timeLeft <= 0) {
+                    clearInterval(countdown);
+                    alert("Time is up!");
+                } else {
+                    timeLeft--;
+                    updateDisplay();
+                }
+            }, 1000);
         }
-      }, 1000);
-    }
-
-    function updateDisplay() {
-      // Convert remainingSeconds -> days/hours/min/sec
-      let sec = remainingSeconds;
-      const days = Math.floor(sec / 86400);
-      sec = sec % 86400;
-
-      const hours = Math.floor(sec / 3600);
-      sec = sec % 3600;
-
-      const minutes = Math.floor(sec / 60);
-      const seconds = sec % 60;
-
-      // Build a readable string
-      const displayString = `${days}d ${hours}h ${minutes}m ${seconds}s remaining`;
-      document.getElementById('timeDisplay').textContent = displayString;
-    }
-
-    function updateProgressBar(percent) {
-      document.getElementById('progressFill').style.width = percent + '%';
-    }
-
-    // Calculate how much time has elapsed as a percent
-    function calcProgressPercent() {
-      const elapsed = totalSeconds - remainingSeconds;
-      const fraction = elapsed / totalSeconds;
-      return (fraction * 100).toFixed(2); // round to 2 decimals if you like
-    }
-  </script>
-
+    </script>
 </body>
 </html>
