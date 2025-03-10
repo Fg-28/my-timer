@@ -1,314 +1,198 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>Single Timer (Apps Script)</title>
+  <meta charset="UTF-8">
+  <title>Simple Countdown with Progress Bar</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
       font-family: Arial, sans-serif;
       margin: 0; padding: 0;
       display: flex; flex-direction: column;
-      height: 100vh;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
       background-color: #f0f0f0;
     }
     header {
-      display: flex; align-items: center;
-      background-color: #4CAF50; color: white;
+      width: 100%;
+      background-color: #4CAF50;
+      color: white;
       padding: 1rem;
+      text-align: center;
     }
-    header button {
-      background: transparent; border: none;
-      color: white; font-size: 1rem; margin-right: 1rem;
-      cursor: pointer;
+    h1 {
+      margin: 0;
+      font-size: 1.5rem;
     }
-    h1 { margin: 0; }
     .main-content {
       flex: 1;
-      display: flex; flex-direction: column;
-      justify-content: center; align-items: center;
-      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       padding: 1rem;
+      width: 100%;
+      max-width: 500px;
+      box-sizing: border-box;
     }
-    .time-remaining {
+    .inputs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      margin-bottom: 1rem;
+    }
+    .inputs label {
+      display: flex;
+      flex-direction: column;
+      font-weight: bold;
+    }
+    .inputs input {
+      margin-top: 0.3rem;
+      width: 80px;
+      padding: 0.3rem;
+      font-size: 1rem;
+      text-align: center;
+    }
+    button {
+      margin-bottom: 1rem;
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    #timeDisplay {
       font-size: 1.2rem;
-      margin: 0.5rem 0;
+      margin-bottom: 1rem;
     }
     .progress-bar-wrapper {
-      width: 80%; max-width: 400px;
+      width: 100%;
+      max-width: 400px;
+      height: 25px;
       background-color: #ddd;
       border-radius: 8px;
-      overflow: hidden; margin-top: 1rem; height: 25px;
+      overflow: hidden;
+      margin-top: 0.5rem;
     }
     .progress-bar-fill {
-      background-color: #4caf50;
+      background-color: #4caf50; /* green portion */
       height: 100%;
-      width: 0%;
+      width: 0%;      /* will be updated dynamically */
       transition: width 0.25s;
-    }
-    /* Modal Overlay */
-    .modal-overlay {
-      position: fixed; top: 0; left: 0;
-      width: 100%; height: 100%;
-      background-color: rgba(0,0,0,0.5);
-      display: none; /* hidden by default */
-      align-items: center; justify-content: center;
-      z-index: 999;
-    }
-    .modal {
-      background-color: #fff;
-      border-radius: 8px; padding: 1.5rem;
-      max-width: 300px; width: 80%;
-    }
-    .modal h3 {
-      margin-top: 0;
-    }
-    .modal p { margin: 1rem 0; }
-    .modal label {
-      display: block; margin: 0.5rem 0 0.2rem 0;
-    }
-    .modal input, .modal select {
-      width: 100%; padding: 0.5rem; margin-bottom: 1rem;
-    }
-    .modal button {
-      margin-right: 0.5rem; padding: 0.5rem 1rem; cursor: pointer;
     }
   </style>
 </head>
 <body>
-  <!-- Header -->
+
   <header>
-    <button onclick="handleAddNew()">Add New</button>
-    <h1>Single Timer</h1>
+    <h1>Simple Countdown</h1>
   </header>
 
-  <!-- Main content -->
   <div class="main-content">
-    <div class="time-remaining" id="timeRemaining">Loading...</div>
+    <div class="inputs">
+      <label>
+        Days
+        <input type="number" id="daysInput" min="0" value="0">
+      </label>
+      <label>
+        Hours
+        <input type="number" id="hoursInput" min="0" max="23" value="0">
+      </label>
+      <label>
+        Minutes
+        <input type="number" id="minutesInput" min="0" max="59" value="1">
+      </label>
+      <label>
+        Seconds
+        <input type="number" id="secondsInput" min="0" max="59" value="0">
+      </label>
+    </div>
+
+    <button onclick="startTimer()">Start Timer</button>
+
+    <div id="timeDisplay">No countdown running.</div>
+
     <div class="progress-bar-wrapper">
       <div class="progress-bar-fill" id="progressFill"></div>
     </div>
   </div>
 
-  <!-- Timer Input Modal -->
-  <div class="modal-overlay" id="timerModalOverlay">
-    <div class="modal">
-      <h3>Set Timer</h3>
-      <label>Enter Number:</label>
-      <input type="number" id="durationInput" placeholder="e.g. 10" />
-      <label>Unit:</label>
-      <select id="unitSelect">
-        <option value="year">Year</option>
-        <option value="month">Month</option>
-        <option value="week">Week</option>
-        <option value="day" selected>Day</option>
-        <option value="hour">Hour</option>
-      </select>
-      <button onclick="confirmTimerCreate()">Create</button>
-      <button onclick="closeTimerModal()">Cancel</button>
-    </div>
-  </div>
-
-  <!-- Confirm Modal (for center-screen confirmations) -->
-  <div class="modal-overlay" id="confirmOverlay">
-    <div class="modal">
-      <h3 id="confirmTitle">Confirm</h3>
-      <p id="confirmMessage">Are you sure?</p>
-      <button id="confirmYesBtn">Yes</button>
-      <button id="confirmNoBtn">No</button>
-    </div>
-  </div>
-
   <script>
-    let updateInterval = null;
-    let timerData = null; // We'll store {startTime, endTime, totalMs} once loaded
+    let intervalId = null;
+    let totalSeconds = 0;   // total countdown duration
+    let remainingSeconds = 0; // how many seconds remain
 
-    document.addEventListener('DOMContentLoaded', () => {
-      // Fetch any existing timer from server on load
-      google.script.run
-        .withSuccessHandler(function(dataStr) {
-          if (dataStr) {
-            // We have existing data
-            timerData = JSON.parse(dataStr);
-            startTimerLoop(timerData);
-          } else {
-            // No timer set
-            document.getElementById('timeRemaining').textContent = "No timer set.";
-          }
-        })
-        .getTimerData();
-    });
+    function startTimer() {
+      // Clear any existing interval
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
 
-    /* ==================================
-       ADD NEW TIMER FLOW
-    ================================== */
-    function handleAddNew() {
-      showConfirmModal(
-        "Add New Timer",
-        "Do you really want to add a new timer? (This will delete the old one.)",
-        () => {
-          // YES => Clear timer on server
-          google.script.run
-            .withSuccessHandler(function() {
-              // Reset local display
-              document.getElementById('timeRemaining').textContent = "No timer set.";
-              document.getElementById('progressFill').style.width = '0%';
-              if (updateInterval) clearInterval(updateInterval);
-              timerData = null;
-              // Show the input modal
-              openTimerModal();
-            })
-            .clearTimerData();
-        },
-        () => {
-          // NO => do nothing
-        }
-      );
-    }
+      // Read inputs
+      const d = parseInt(document.getElementById('daysInput').value, 10) || 0;
+      const h = parseInt(document.getElementById('hoursInput').value, 10) || 0;
+      const m = parseInt(document.getElementById('minutesInput').value, 10) || 0;
+      const s = parseInt(document.getElementById('secondsInput').value, 10) || 0;
 
-    /* ==================================
-       TIMER MODAL
-    ================================== */
-    function openTimerModal() {
-      document.getElementById('timerModalOverlay').style.display = 'flex';
-      document.getElementById('durationInput').value = '';
-      document.getElementById('unitSelect').value = 'day';
-    }
-    function closeTimerModal() {
-      document.getElementById('timerModalOverlay').style.display = 'none';
-    }
+      // Convert everything to total seconds
+      totalSeconds = d * 86400 + h * 3600 + m * 60 + s;
+      remainingSeconds = totalSeconds;
 
-    // When "Create" is clicked in the modal
-    function confirmTimerCreate() {
-      const duration = document.getElementById('durationInput').value;
-      const unit = document.getElementById('unitSelect').value;
-      if (!duration || isNaN(duration) || duration <= 0) {
-        alert("Please enter a valid number.");
+      if (totalSeconds <= 0) {
+        document.getElementById('timeDisplay').textContent = "Please enter a valid time.";
+        updateProgressBar(0);
         return;
       }
-      let label = `${duration} ${unit}`;
-      showConfirmModal(
-        "Create Timer",
-        `Are you sure you want to create ${label} timer?`,
-        () => {
-          // YES => actually create
-          closeTimerModal();
-          createTimer(duration, unit);
-        },
-        () => {
-          // NO => do nothing
+
+      // Update immediately
+      updateDisplay();
+      updateProgressBar(calcProgressPercent());
+
+      // Start interval
+      intervalId = setInterval(() => {
+        remainingSeconds--;
+
+        if (remainingSeconds <= 0) {
+          // final update, then stop
+          remainingSeconds = 0;
+          updateDisplay();
+          updateProgressBar(100);
+          clearInterval(intervalId);
+          alert("Time is up!");
+        } else {
+          // normal update
+          updateDisplay();
+          updateProgressBar(calcProgressPercent());
         }
-      );
-    }
-
-    // Actually create the timer (on the server)
-    function createTimer(duration, unit) {
-      const now = new Date();
-      let end = new Date(now);
-
-      switch (unit) {
-        case 'year':  end.setFullYear(end.getFullYear() + parseInt(duration)); break;
-        case 'month': end.setMonth(end.getMonth() + parseInt(duration)); break;
-        case 'week':  end.setDate(end.getDate() + (parseInt(duration) * 7)); break;
-        case 'day':   end.setDate(end.getDate() + parseInt(duration)); break;
-        case 'hour':  end.setHours(end.getHours() + parseInt(duration)); break;
-        default:      end.setDate(end.getDate() + parseInt(duration));
-      }
-
-      const startTime = now.getTime();
-      const endTime = end.getTime();
-      const totalMs = endTime - startTime;
-
-      const newTimer = {
-        startTime: startTime,
-        endTime: endTime,
-        totalMs: totalMs
-      };
-      const newTimerStr = JSON.stringify(newTimer);
-
-      // Save on server
-      google.script.run
-        .withSuccessHandler(function(response) {
-          // Now load it into our UI
-          timerData = newTimer;
-          startTimerLoop(timerData);
-        })
-        .setTimerData(newTimerStr);
-    }
-
-    /* ==================================
-       COUNTDOWN & PROGRESS
-    ================================== */
-    function startTimerLoop(data) {
-      if (updateInterval) clearInterval(updateInterval);
-      updateUI(data); // immediate
-      updateInterval = setInterval(() => {
-        updateUI(data);
       }, 1000);
     }
 
-    function updateUI(data) {
-      const now = Date.now();
-      let remainMs = data.endTime - now;
-      if (remainMs < 0) remainMs = 0;
+    function updateDisplay() {
+      // Convert remainingSeconds -> days/hours/min/sec
+      let sec = remainingSeconds;
+      const days = Math.floor(sec / 86400);
+      sec = sec % 86400;
 
-      // d/h/m/s
-      let seconds = Math.floor(remainMs / 1000);
-      let minutes = Math.floor(seconds / 60);
-      let hours = Math.floor(minutes / 60);
-      let days = Math.floor(hours / 24);
+      const hours = Math.floor(sec / 3600);
+      sec = sec % 3600;
 
-      seconds = seconds % 60;
-      minutes = minutes % 60;
-      hours = hours % 24;
+      const minutes = Math.floor(sec / 60);
+      const seconds = sec % 60;
 
-      let displayStr = '';
-      if (days > 0) displayStr += days + 'd ';
-      if (hours > 0) displayStr += hours + 'h ';
-      if (minutes > 0) displayStr += minutes + 'm ';
-      displayStr += seconds + 's';
+      // Build a readable string
+      const displayString = `${days}d ${hours}h ${minutes}m ${seconds}s remaining`;
+      document.getElementById('timeDisplay').textContent = displayString;
+    }
 
-      if (remainMs <= 0) {
-        document.getElementById('timeRemaining').textContent = "Time is up!";
-      } else {
-        document.getElementById('timeRemaining').textContent = displayStr + " remaining";
-      }
-
-      // progress
-      let elapsedMs = data.totalMs - remainMs;
-      let percent = (elapsedMs / data.totalMs) * 100;
-      if (percent > 100) percent = 100;
+    function updateProgressBar(percent) {
       document.getElementById('progressFill').style.width = percent + '%';
     }
 
-    /* ==================================
-       CUSTOM CONFIRM MODAL
-    ================================== */
-    function showConfirmModal(title, message, onYes, onNo) {
-      const overlay = document.getElementById('confirmOverlay');
-      const titleElem = document.getElementById('confirmTitle');
-      const messageElem = document.getElementById('confirmMessage');
-      const yesBtn = document.getElementById('confirmYesBtn');
-      const noBtn = document.getElementById('confirmNoBtn');
-
-      titleElem.textContent = title;
-      messageElem.textContent = message;
-
-      // Clear old handlers
-      yesBtn.onclick = null;
-      noBtn.onclick = null;
-
-      yesBtn.onclick = () => {
-        overlay.style.display = 'none';
-        if (typeof onYes === 'function') onYes();
-      };
-      noBtn.onclick = () => {
-        overlay.style.display = 'none';
-        if (typeof onNo === 'function') onNo();
-      };
-
-      overlay.style.display = 'flex';
+    // Calculate how much time has elapsed as a percent
+    function calcProgressPercent() {
+      const elapsed = totalSeconds - remainingSeconds;
+      const fraction = elapsed / totalSeconds;
+      return (fraction * 100).toFixed(2); // round to 2 decimals if you like
     }
   </script>
+
 </body>
 </html>
