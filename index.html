@@ -1,19 +1,15 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8" />
-  <title>Countdown (Days : Hours : MM : SS)</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <title>Simple Countdown</title>
   <style>
     body {
       display: flex;
       flex-direction: column;
       align-items: center;
       font-family: Arial, sans-serif;
-      margin-top: 40px;
-    }
-    h1 {
-      margin-bottom: 20px;
+      margin-top: 50px;
     }
     .countdown-display {
       font-size: 2rem;
@@ -21,17 +17,9 @@
     }
     .input-row {
       margin: 10px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      justify-content: center;
-      align-items: center;
-    }
-    .input-row label {
-      margin-right: 5px;
     }
     input[type="number"] {
-      width: 80px;
+      width: 60px;
       padding: 4px;
       font-size: 1rem;
     }
@@ -39,36 +27,30 @@
       font-size: 1rem;
       padding: 6px 12px;
       margin: 10px 0;
-      cursor: pointer;
     }
   </style>
 </head>
 <body>
 
-  <h1>Countdown Timer (D : H : MM : SS)</h1>
+  <h1>Countdown Timer</h1>
   
+  <!-- Input row: HH MM SS -->
   <div class="input-row">
-    <label>Days:</label>
-    <input type="number" id="daysInput" min="0" value="2" />
-
     <label>Hours:</label>
-    <input type="number" id="hoursInput" min="0" max="23" value="3" />
+    <input type="number" id="hoursInput" min="0" value="0">
     
     <label>Minutes:</label>
-    <input type="number" id="minutesInput" min="0" max="59" value="0" />
+    <input type="number" id="minutesInput" min="0" max="59" value="1">
     
     <label>Seconds:</label>
-    <input type="number" id="secondsInput" min="0" max="59" value="5" />
+    <input type="number" id="secondsInput" min="0" max="59" value="0">
   </div>
   
   <button onclick="startCountdown()">Start Timer</button>
 
   <div class="countdown-display" id="countdownDisplay">
-    -- : -- : -- : --
+    --:--:--
   </div>
-
-  <!-- Tick sound: you can replace this with your own short tick/clock file -->
-  <audio id="tickSound" src="https://assets.coderrocketfuel.com/pomodoro-times-up.mp3" preload="auto"></audio>
 
   <script>
     let countdownInterval = null;
@@ -78,34 +60,23 @@
       if (countdownInterval) {
         clearInterval(countdownInterval);
       }
+      
+      // Get user input
+      const hours = parseInt(document.getElementById('hoursInput').value, 10) || 0;
+      const minutes = parseInt(document.getElementById('minutesInput').value, 10) || 0;
+      const seconds = parseInt(document.getElementById('secondsInput').value, 10) || 0;
 
-      // Grab user inputs
-      const daysVal = parseInt(document.getElementById('daysInput').value, 10) || 0;
-      const hoursVal = parseInt(document.getElementById('hoursInput').value, 10) || 0;
-      const minutesVal = parseInt(document.getElementById('minutesInput').value, 10) || 0;
-      const secondsVal = parseInt(document.getElementById('secondsInput').value, 10) || 0;
-
-      // Convert all to total seconds
-      let totalSeconds = (daysVal * 86400) + (hoursVal * 3600) + (minutesVal * 60) + secondsVal;
-
-      // Update display immediately
+      // Convert everything to total seconds
+      let totalSeconds = hours * 3600 + minutes * 60 + seconds;
+      
+      // Update the display immediately
       updateDisplay(totalSeconds);
 
-      // Attempt to play a short sound once, to "unlock" audio on mobile
-      const tickAudio = document.getElementById('tickSound');
-      tickAudio.play().catch(() => {
-        // Some browsers (iOS) may block; ignore if it fails
-      });
-
-      // Start interval
+      // Create a one-second interval
       countdownInterval = setInterval(() => {
         totalSeconds--;
-
-        // Each second, try playing the tick sound
-        tickAudio.currentTime = 0; // rewind
-        tickAudio.play().catch(() => { /* ignore any errors */ });
-
         if (totalSeconds <= 0) {
+          // Stop at 0, show "00:00:00"
           clearInterval(countdownInterval);
           updateDisplay(0);
           alert("Time is up!");
@@ -115,25 +86,20 @@
       }, 1000);
     }
 
-    // Update the displayed timer (D : H : MM : SS)
+    // Format HH:MM:SS
     function updateDisplay(totalSeconds) {
       const display = document.getElementById('countdownDisplay');
+      
+      let hrs = Math.floor(totalSeconds / 3600);
+      let mins = Math.floor((totalSeconds % 3600) / 60);
+      let secs = totalSeconds % 60;
 
-      let days = Math.floor(totalSeconds / 86400);
-      let remainder = totalSeconds % 86400;
+      // Pad with zeros, e.g. "07"
+      hrs = hrs < 10 ? '0' + hrs : hrs;
+      mins = mins < 10 ? '0' + mins : mins;
+      secs = secs < 10 ? '0' + secs : secs;
 
-      let hours = Math.floor(remainder / 3600);
-      remainder = remainder % 3600;
-
-      let minutes = Math.floor(remainder / 60);
-      let secs = remainder % 60;
-
-      // No zero-padding for days/hours; just raw integer
-      // Zero-padding for minutes/seconds
-      const mm = minutes < 10 ? '0' + minutes : minutes;
-      const ss = secs < 10 ? '0' + secs : secs;
-
-      display.textContent = `${days} : ${hours} : ${mm} : ${ss}`;
+      display.textContent = `${hrs}:${mins}:${secs}`;
     }
   </script>
 </body>
